@@ -4,6 +4,8 @@ from tqdm import tqdm
 import os
 from dotenv import load_dotenv
 import logging
+import json
+import requests
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +58,19 @@ def generate_ghibli_image(
         try:
             logger.info(f"Attempt {attempt + 1}/{max_retries}")
             
+            # First verify the API endpoint is accessible
+            try:
+                response = requests.get(
+                    "https://huggingface.co/jamesliu1217/EasyControl_Ghibli",
+                    headers={"Authorization": f"Bearer {token}"}
+                )
+                if response.status_code != 200:
+                    logger.error(f"API endpoint verification failed: {response.status_code}")
+                    raise ValueError(f"API endpoint verification failed: {response.status_code}")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"API endpoint verification failed: {str(e)}")
+                raise ValueError(f"API endpoint verification failed: {str(e)}")
+            
             client = Client(
                 "jamesliu1217/EasyControl_Ghibli",
                 hf_token=token
@@ -96,15 +111,19 @@ def generate_ghibli_image(
                     
                 if "not found" in error_msg.lower():
                     raise ValueError("Invalid API endpoint or model not found")
+                
+                if "<" in error_msg:  # Check for HTML error response
+                    logger.error("Received HTML error response instead of JSON")
+                    raise ValueError("API returned an error page. Please check your authentication token and API endpoint.")
                     
                 raise e
-                    
+                
         except Exception as e:
-            logger.error(f"Error in attempt {attempt + 1}: {str(e)}")
-            if attempt == max_retries - 1:
-                logger.error("Max retries reached")
-                raise RuntimeError(f"Failed after {max_retries} attempts: {str(e)}")
-            time.sleep(5)
+            if attempt == max_retries - 1:  # Last attempt
+                logger.error(f"All attempts failed: {str(e)}")
+                raise
+            logger.warning(f"Attempt {attempt + 1} failed, retrying...")
+            time.sleep(2)
     
     return None
 
