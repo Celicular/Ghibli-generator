@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghibli Style AI Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: #0f0f0f;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .title-gradient {
+            background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+        }
+
+        .input-group {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .custom-input {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            color: #fff;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .custom-input:focus {
+            border-color: #4ECDC4;
+            box-shadow: 0 0 0 2px rgba(78, 205, 196, 0.2);
+            outline: none;
+        }
+
+        .custom-input:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            border: none;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.2);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-bar-container {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 100px;
+            height: 8px;
+            overflow: hidden;
+            position: relative;
+            margin: 2rem 0;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #4ECDC4, #FF6B6B);
+            height: 100%;
+            transition: width 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 100px;
+            position: relative;
+        }
+
+        .progress-markers {
+            position: absolute;
+            top: -1.5rem;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 1rem;
+        }
+
+        .progress-marker {
+            position: relative;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translateX(-50%);
+        }
+
+        .progress-marker::after {
+            content: '';
+            width: 1px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            margin-top: 4px;
+        }
+
+        .progress-marker.active {
+            color: #4ECDC4;
+        }
+
+        .progress-marker.active::after {
+            background: #4ECDC4;
+        }
+
+        .progress-status {
+            position: absolute;
+            top: 1.25rem;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.875rem;
+        }
+
+        .result-image {
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .result-image:hover {
+            transform: scale(1.02);
+        }
+
+        .download-btn {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(78, 205, 196, 0.9);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: rgba(78, 205, 196, 1);
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            color: #FF6B6B;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .retry-button {
+            background: linear-gradient(135deg, #4ECDC4, #2AB7CA);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin-top: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .retry-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.2);
+        }
+
+        .error-container {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            text-align: center;
+        }
+
+        .info-text {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 12px;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+
+        .footer a {
+            color: #4ECDC4;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer a:hover {
+            color: #FF6B6B;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .file-input-button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            color: white;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .file-input-button svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-name {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="glass-card">
+            <h1 class="text-4xl mb-6 text-center title-gradient">Ghibli Art Generator</h1>
+            <p class="text-center text-gray-400 mb-8">Transform your photos into Ghibli-style masterpieces</p>
+
+            <form id="uploadForm" class="space-y-6">
+                <input type="hidden" id="clientId" name="client_id" value="">
+
+                <div class="input-group">
+                    <h3 class="text-lg font-semibold mb-4">Image Input</h3>
+                    <div class="flex gap-4 flex-wrap">
+                        <button type="button" id="cameraButton" class="btn btn-secondary">
+                            <span class="flex items-center gap-2">
+                                📷 Camera
+                            </span>
+                        </button>
+                        <div class="file-input-wrapper">
+                            <button type="button" class="file-input-button">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span class="hidden md:inline">Choose File</span>
+                            </button>
+                            <input type="file" name="image" accept="image/*" class="file-input" required>
+                            <div class="file-name"></div>
+                        </div>
+                    </div>
+                    <img id="previewImage" class="preview-image">
+                </div>
+
+                <div class="input-group">
+                    <h3 class="text-lg font-semibold mb-4">Generation Settings</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Width</label>
+                            <input type="number" name="width" value="768" min="256" max="1024" 
+                                   class="custom-input" id="widthInput">
+                            <div class="error-message hidden" id="widthError"></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Height</label>
+                            <input type="number" name="height" value="768" min="256" max="1024" 
+                                   class="custom-input" id="heightInput">
+                            <div class="error-message hidden" id="heightError"></div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium mb-2">Style Prompt</label>
+                        <textarea name="prompt" class="custom-input" rows="2" disabled>Ghibli Studio style, Charming hand-drawn anime-style illustration</textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-full text-lg">
+                    Generate Artwork ✨
+                </button>
+            </form>
+
+            <div id="progressContainer" class="hidden mt-8">
+                <div class="progress-bar-container">
+                    <div class="progress-markers">
+                        <div class="progress-marker" data-progress="0">0%</div>
+                        <div class="progress-marker" data-progress="25">25%</div>
+                        <div class="progress-marker" data-progress="50">50%</div>
+                        <div class="progress-marker" data-progress="75">75%</div>
+                        <div class="progress-marker" data-progress="100">100%</div>
+                    </div>
+                    <div id="progressBar" class="progress-bar w-0"></div>
+                    <div class="progress-status" id="progressStatus"></div>
+                </div>
+                <p id="progressText" class="text-center mt-6 text-gray-400"></p>
+            </div>
+
+            <div id="result" class="hidden mt-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4">Original Image</h3>
+                        <div class="result-image">
+                            <img id="originalImage" class="w-full">
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-4">Generated Artwork</h3>
+                        <div class="result-image relative">
+                            <img id="generatedImage" class="w-full">
+                            <button class="download-btn hidden">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        Created with ❤️ by <a href="#" target="_blank">Himadri Shekhar</a>
+    </footer>
+
+    <!-- Camera Modal -->
+    <div class="camera-modal fixed inset-0 bg-black bg-opacity-90 hidden z-50">
+        <div class="glass-card max-w-2xl mx-auto mt-20">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Camera Capture</h3>
+                <button id="closeCamera" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <video id="videoElement" class="w-full rounded-lg"></video>
+            <canvas id="canvas" class="hidden"></canvas>
+            <div class="flex justify-center mt-4">
+                <button id="captureButton" class="btn btn-primary">Capture Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let clientId = null;
+
+        // Elements
+        const cameraModal = document.querySelector('.camera-modal');
+        const video = document.getElementById('videoElement');
+        const canvas = document.getElementById('canvas');
+        const captureButton = document.getElementById('captureButton');
+        const closeCamera = document.getElementById('closeCamera');
+        const cameraButton = document.getElementById('cameraButton');
+        const fileInput = document.querySelector('.file-input');
+        const previewImage = document.getElementById('previewImage');
+        const widthInput = document.getElementById('widthInput');
+        const heightInput = document.getElementById('heightInput');
+        const widthError = document.getElementById('widthError');
+        const heightError = document.getElementById('heightError');
+        const fileName = document.querySelector('.file-name');
+        const fileInputButton = document.querySelector('.file-input-button');
+
+        // Socket connection
+        socket.on('connect', function() {
+            clientId = socket.id;
+            document.getElementById('clientId').value = clientId;
+        });
+
+        // Input validation
+        function validateDimensions() {
+            const width = parseInt(widthInput.value);
+            const height = parseInt(heightInput.value);
+            let isValid = true;
+
+            if (width > 1024) {
+                widthError.textContent = 'Width cannot exceed 1024px';
+                widthError.classList.remove('hidden');
+                isValid = false;
+            } else {
+                widthError.classList.add('hidden');
+            }
+
+            if (height > 1024) {
+                heightError.textContent = 'Height cannot exceed 1024px';
+                heightError.classList.remove('hidden');
+                isValid = false;
+            } else {
+                heightError.classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        widthInput.addEventListener('input', validateDimensions);
+        heightInput.addEventListener('input', validateDimensions);
+
+        // File input handling
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImage.src = e.target.result;
+                    previewImage.style.display = 'block';
+                    originalImage.src = e.target.result;
+                };
+                reader.readAsDataURL(e.target.files[0]);
+                cameraButton.disabled = true;
+                cameraButton.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                // Show file name
+                fileName.textContent = e.target.files[0].name;
+                fileName.style.display = 'block';
+            }
+        });
+
+        // Camera handling
+        cameraButton.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                video.play();
+                cameraModal.classList.remove('hidden');
+            } catch (err) {
+                alert('Error accessing camera: ' + err.message);
+            }
+        });
+
+        closeCamera.addEventListener('click', stopCamera);
+
+        captureButton.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const imageData = canvas.toDataURL('image/jpeg');
+            previewImage.src = imageData;
+            previewImage.style.display = 'block';
+            originalImage.src = imageData;
+            stopCamera();
+            fileInput.value = '';
+            fileName.style.display = 'none';
+        });
+
+        function stopCamera() {
+            const stream = video.srcObject;
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            cameraModal.classList.add('hidden');
+        }
+
+        // Form submission
+        const form = document.getElementById('uploadForm');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressStatus = document.getElementById('progressStatus');
+        const progressMarkers = document.querySelectorAll('.progress-marker');
+        const result = document.getElementById('result');
+        const originalImage = document.getElementById('originalImage');
+        const generatedImage = document.getElementById('generatedImage');
+        const downloadButton = document.querySelector('.download-btn');
+        let retryCount = 0;
+        const MAX_RETRIES = 3;
+
+        function updateProgressMarkers(progress) {
+            progressMarkers.forEach(marker => {
+                const markerProgress = parseInt(marker.dataset.progress);
+                if (progress >= markerProgress) {
+                    marker.classList.add('active');
+                } else {
+                    marker.classList.remove('active');
+                }
+            });
+        }
+
+        function updateProgress(progress, status) {
+            progressBar.style.width = `${progress}%`;
+            progressStatus.textContent = status;
+            updateProgressMarkers(progress);
+        }
+
+        function resetProgress() {
+            progressBar.style.width = '0%';
+            progressContainer.classList.remove('hidden');
+            result.classList.add('hidden');
+            downloadButton.classList.add('hidden');
+            retryCount = 0;
+            updateProgressMarkers(0);
+            progressStatus.textContent = 'Starting...';
+        }
+
+        function showError(message, canRetry = true) {
+            const errorHtml = `
+                <div class="error-container">
+                    <p class="text-red-500">${message}</p>
+                    ${retryCount > 0 ? `<p class="info-text">Retry attempt ${retryCount} of ${MAX_RETRIES}</p>` : ''}
+                    ${canRetry ? `<button class="retry-button">Try Again</button>` : ''}
+                    <p class="info-text mt-2">Note: This is running on a free instance. If you encounter errors, please wait a moment and try again.</p>
+                </div>
+            `;
+            progressText.innerHTML = errorHtml;
+
+            if (canRetry) {
+                const retryButton = progressText.querySelector('.retry-button');
+                retryButton.addEventListener('click', () => {
+                    if (retryCount < MAX_RETRIES) {
+                        submitForm();
+                    }
+                });
+            }
+        }
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            
+            if (!validateDimensions()) {
+                return;
+            }
+
+            if (!clientId) {
+                alert('Error: No connection to server');
+                return;
+            }
+
+            resetProgress();
+            submitForm();
+        };
+
+        let progressInterval;
+
+        async function submitForm() {
+            const formData = new FormData(form);
+            retryCount++;
+            
+            // Start the progress animation
+            let progress = 0;
+            clearInterval(progressInterval);
+            progressInterval = setInterval(() => {
+                // Slow down progress as it gets higher
+                const increment = Math.max(0.2, (100 - progress) / 200);
+                progress = Math.min(progress + increment, 95);
+                updateProgress(progress, 'Generating artwork...');
+            }, 100);
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Smooth completion of progress bar
+                    clearInterval(progressInterval);
+                    updateProgress(100, 'Generation complete!');
+                    
+                    // Show the result after a short delay to let progress bar finish
+                    setTimeout(() => {
+                        result.classList.remove('hidden');
+                        generatedImage.src = data.image;
+                        downloadButton.classList.remove('hidden');
+                        result.scrollIntoView({ behavior: 'smooth' });
+                    }, 500);
+                } else {
+                    throw new Error(data.error || 'Generation failed');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                const canRetry = retryCount < MAX_RETRIES;
+                const errorMessage = error.message === 'Failed to fetch' 
+                    ? 'Connection error. The server might be busy.'
+                    : error.message;
+                
+                showError(errorMessage, canRetry);
+                
+                if (canRetry) {
+                    updateProgress(30, 'Retrying...');
+                } else {
+                    showError('Maximum retry attempts reached. Please try again later.', false);
+                }
+            }
+        }
+
+        // Progress updates
+        socket.on('progress_update', function(data) {
+            if (data.progress === -1) {
+                updateProgress(30, 'Server busy, retrying...');
+            }
+        });
+
+        // Download functionality
+        downloadButton.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'ghibli-artwork.jpg';
+            link.href = generatedImage.src;
+            link.click();
+        });
+    </script>
+</body>
+</html> 

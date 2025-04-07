@@ -1,0 +1,6 @@
+gradio_client>=0.10.1
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+Flask>=2.0.1
+Werkzeug>=2.0.1
+Flask-SocketIO>=5.1.1 
